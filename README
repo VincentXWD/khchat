@@ -1,0 +1,10 @@
+Here's an open source chat tool written by golang based in TCP protocol. The features are not complete. I'm completing it. Just wait a few days :)
+Usage:
+	Server:
+		./go run server.go [PORT]
+	Client:
+		./go run client.go [IP:PORT]
+In this version, you must use the real IP address in client. For example:
+./go run server.go 6666
+./go run client.go 222.211.38.41:6666 (Do NOT use localhost:6666 or 127.0.0.1:6666)
+
