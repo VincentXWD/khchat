@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/base64"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"net"
@@ -10,41 +8,35 @@ import (
 	"strings"
 )
 
-func CheckError(err error) int {
-	if err != nil {
-		if err.Error() == "EOF" {
-			return 0
+var connect map[net.Conn]net.Conn
+
+func BroadCast(self net.Conn, buf []byte) {
+	for conn := range connect {
+		if conn == self {
+			continue
 		}
-		log.Fatalln(err.Error())
-		return -1
+		conn.Write(buf)
 	}
-	return 1
 }
 
-func Decode(raw []byte) []byte {
-	var buf bytes.Buffer
-	decoded := make([]byte, 215)
-	buf.Write(raw)
-	decoder := base64.NewDecoder(base64.StdEncoding, &buf)
-	decoder.Read(decoded)
-	return decoded
-}
-
-func GetMessage(conn net.Conn, from string) {
+func ServerHandle(conn net.Conn) {
 	var (
-		name string
+		name      string
+		info, buf []byte
 	)
-	info := make([]byte, 512)
+	info = make([]byte, 512)
 	_, err := conn.Read(info)
 	name = strings.Split(string(info), " ")[0]
 	log.Warnf("Client from %s. He(She) is [%s].", conn.RemoteAddr().String(), name)
 	CheckError(err)
 	for {
-		buf := make([]byte, 512)
+		buf = make([]byte, 512)
 		_, err := conn.Read(buf)
+		BroadCast(conn, buf)
 		flag := CheckError(err)
 		if flag == 0 {
 			log.Warnf("%s has disconnected.", name)
+			BroadCast(nil, []byte("%s has disconnected."))
 			return
 		}
 		fmt.Println(string(Decode(buf)))
@@ -59,9 +51,9 @@ func Server(ip string, port string) {
 	log.Infoln("Server established.")
 	for {
 		conn, err := listener.Accept()
-		defer conn.Close()
+		connect[conn] = conn
 		CheckError(err)
-		go GetMessage(conn, conn.RemoteAddr().String())
+		go ServerHandle(conn)
 	}
 }
 
@@ -72,6 +64,8 @@ func GetLocalIp() string {
 	}
 	return strings.Split(addrs[1].String(), "/")[0]
 }
+
 func main() {
+	connect = make(map[net.Conn]net.Conn)
 	Server(GetLocalIp(), os.Args[1])
 }
